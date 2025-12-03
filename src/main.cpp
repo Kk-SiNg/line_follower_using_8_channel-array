@@ -223,7 +223,7 @@ void loop() {
             }
             
             // === Check for FINISH WHITE SQUARE FIRST (Priority!) ===
-            if (sensors. isEndPoint()) {
+            if (sensors.isEndPoint()) {
                 if (lineEndStartTime == 0) {
                     lineEndStartTime = millis();
                     Serial. println("⚠️ Finish square detected - confirming.. .");
@@ -233,21 +233,8 @@ void loop() {
                     // Confirmed finish square! 
                     motors.stopBrake();
                     robotRunning = false;
-                    
+
                     unsigned long runTime = (millis() - runStartTime) / 1000;
-                    
-                    Serial.println("\n╔════════════════════════════════════════╗");
-                    Serial.println("║                                        ║");
-                    Serial.println("║      🏆  MAZE COMPLETE!  🏆            ║");
-                    Serial.println("║                                        ║");
-                    Serial.println("║   IIT Bombay Mesmerize Complete!     ║");
-                    Serial. println("║                                        ║");
-                    Serial.println("╚════════════════════════════════════════╝");
-                    Serial.print("\n⏱️  Time: ");
-                    Serial.print(runTime);
-                    Serial.println(" seconds");
-                    Serial.print("🔀 Junctions: ");
-                    Serial.println(junctionCount);
                     
                     if (client && client.connected()) {
                         client.println("\n╔════════════════════════════════════════╗");
@@ -260,71 +247,22 @@ void loop() {
                         client.print("Junctions: ");
                         client.println(junctionCount);
                     }
-                    
                     currentState = FINISHED;
                     lineEndStartTime = 0;
                     break;
                 }
-            } else {
+            } 
+            else {
                 // Not on finish square - reset timer
                 lineEndStartTime = 0;
             }
             
             // === Optional: Check for line loss (dead end) ===
             // Uncomment if you want to handle complete line loss
-            /*
-            if (sensors.isLineEnd()) {
-                Serial.println("⚠️ Line completely lost - possible dead end");
-                // Could implement recovery or turn-back logic here
-            }
-            */
-            
-            // Run PID control
-            runPID(currentSpeed);
-            
-            // === Check for Line End FIRST ===
-            if (sensors.isLineEnd()) {
-                if (lineEndStartTime == 0) {
-                    lineEndStartTime = millis();
-                    motors.stopBrake();  // Stop immediately
-                } 
-                else if (millis() - lineEndStartTime > LINE_END_CONFIRM_TIME) {
-                    // Confirmed line end - maze complete! 
-                    motors.stopBrake();
-                    robotRunning = false;
-                    
-                    unsigned long runTime = (millis() - runStartTime) / 1000;
-                    
-                    // Serial.println("\n╔════════════════════════════════════════╗");
-                    // Serial.println("║                                        ║");
-                    // Serial.println("║      🏆  MAZE COMPLETE!  🏆            ║");
-                    // Serial.println("║                                        ║");
-                    // Serial.println("╚════════════════════════════════════════╝");
-                    // Serial.print("Time: ");
-                    // Serial.print(runTime);
-                    // Serial.println(" seconds");
-                    // Serial.print("Junctions navigated: ");
-                    // Serial.println(junctionCount);
-                    
-                    if (client && client.connected()) {
-                        client.println("\n╔════════════════════════════════════════╗");
-                        client.println("║      🏆  MAZE COMPLETE!  🏆            ║");
-                        client.println("╚════════════════════════════════════════╝");
-                        client.print("Time: ");
-                        client.print(runTime);
-                        client.println("s");
-                        client.print("Junctions: ");
-                        client.println(junctionCount);
-                    }
-                    
-                    currentState = FINISHED;
-                    lineEndStartTime = 0;
-                    break;
-                }
-            } else {
-                // Line detected - reset timer
-                lineEndStartTime = 0;
-            }
+            // if (sensors.isLineEnd()) {
+            //     Serial.println("⚠️ Line completely lost - possible dead end");
+            //     // Could implement recovery or turn-back logic here
+            // }
             
             // Run PID control
             runPID(currentSpeed);
