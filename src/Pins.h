@@ -38,9 +38,9 @@ const bool isAnalogPin[SensorCount] = {
 };
 
 // Analog sensor configuration
-#define LINE_THRESHOLD 2000           // Analog threshold (0-4095) for analog pins
+#define LINE_THRESHOLD 60           // Analog threshold (0-4095) for analog pins
 #define MIN_DETECTION_RATIO 0.4       // 40% of calibrated range
-#define CALIBRATION_TIME_MS 3000      // 3 seconds for auto-calibration
+#define CALIBRATION_TIME_MS 5000      // 5 seconds for auto-calibration
 
 // === MOTOR CONTROL (L298N) ===
 // Left Motor (Motor A)
@@ -64,7 +64,7 @@ const bool isAnalogPin[SensorCount] = {
 #define USER_BUTTON 0    // Boot button (also used for control)
 
 // === WIFI CONFIGURATION ===
-#define SSID "Readmi A2"
+#define SSID "Redmi A2"
 #define PASSWORD "kvsandkks"
 #define TELNET_PORT 23
 

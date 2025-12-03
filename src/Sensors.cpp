@@ -11,7 +11,7 @@ Sensors::Sensors() {
     
     // Initialize calibration arrays with extremes
     for(int i = 0; i < SensorCount; i++) {
-        minValues[i] = 4095;  // Start with max possible
+        minValues[i] = 500;  // Start with max possible
         maxValues[i] = 0;      // Start with min possible
     }
 }
@@ -25,15 +25,15 @@ void Sensors::setup() {
     pinMode(SENSOR_PIN_1, INPUT);  // Digital outer right
     pinMode(SENSOR_PIN_8, INPUT);  // Digital outer left
     
-    Serial.println("\n╔════════════════════════════════════════╗");
-    Serial.println("║  RLS-08 HYBRID Sensor Calibration    ║");
-    Serial.println("║  8-Channel: 6 Analog + 2 Digital      ║");
-    Serial.println("╚════════════════════════════════════════╝");
-    Serial.println("Auto-calibrating analog sensors...");
-    Serial.println("Move sensor over BLACK and WHITE surfaces");
-    Serial.print("Calibrating for ");
-    Serial.print(CALIBRATION_TIME_MS / 1000);
-    Serial.println(" seconds...\n");
+    // Serial.println("\n╔════════════════════════════════════════╗");
+    // Serial.println("║  RLS-08 HYBRID Sensor Calibration    ║");
+    // Serial.println("║  8-Channel: 6 Analog + 2 Digital      ║");
+    // Serial.println("╚════════════════════════════════════════╝");
+    // Serial.println("Auto-calibrating analog sensors...");
+    // Serial.println("Move sensor over BLACK and WHITE surfaces");
+    // Serial.print("Calibrating for ");
+    // Serial.print(CALIBRATION_TIME_MS / 1000);
+    // Serial.println(" seconds...\n");
     
     pinMode(ONBOARD_LED, OUTPUT);
     digitalWrite(ONBOARD_LED, HIGH);
@@ -114,33 +114,46 @@ void Sensors::readRaw(uint16_t* values) {
     // Read sensors based on type (analog vs digital)
     
     // S1: Digital (rightmost outer)
-    values[0] = digitalRead(SENSOR_PIN_1) ? 4095 : 0;
+    values[0] = analogRead(SENSOR_PIN_1);
+    values[0] = analogRead(SENSOR_PIN_8);
+    if(values[0] < 200){
+        values[0] == 0;
+    }
+    else{
+        values[0] = 1;
+    }
     
     // S2-S7: Analog (center 6 sensors)
-    values[1] = analogRead(SENSOR_PIN_2);
-    values[2] = analogRead(SENSOR_PIN_3);
-    values[3] = analogRead(SENSOR_PIN_4);
-    values[4] = analogRead(SENSOR_PIN_5);
-    values[5] = analogRead(SENSOR_PIN_6);
-    values[6] = analogRead(SENSOR_PIN_7);
+    values[1] = 400-analogRead(SENSOR_PIN_2);
+    values[2] = 712-analogRead(SENSOR_PIN_3);
+    values[3] = 433-analogRead(SENSOR_PIN_4);
+    values[4] = 131-analogRead(SENSOR_PIN_5);
+    values[5] = 1016-analogRead(SENSOR_PIN_6);
+    values[6] = 869-analogRead(SENSOR_PIN_7);
     
     // S8: Digital (leftmost outer)
-    values[7] = digitalRead(SENSOR_PIN_8) ? 4095 : 0;
+    values[7] = analogRead(SENSOR_PIN_8);
+    if(values[7] < 200){
+        values[7] == 0;
+    }
+    else{
+        values[7] = 1;
+    }
 }
 
 float Sensors::normalizeValue(uint16_t rawValue, uint8_t sensorIndex) {
-    if (!isAnalogPin[sensorIndex]) {
-        // Digital sensor - return 0.0 or 1.0
-        return (rawValue > 2000) ? 1.0 : 0.0;
-    }
+    // if (!isAnalogPin[sensorIndex]) {
+    //     // Digital sensor - return 0.0 or 1.0
+    //     return (rawValue > 2000) ? 1.0 : 0.0;
+    // }
     
     // Analog sensor - normalize to 0.0-1.0 based on calibration
     uint16_t range = maxValues[sensorIndex] - minValues[sensorIndex];
     
-    if (range < 100) {
-        // Poor calibration - use raw threshold
-        return (rawValue > LINE_THRESHOLD) ? 1.0 : 0.0;
-    }
+    // if (range < 100) {
+    //     // Poor calibration - use raw threshold
+    //     return (rawValue > LINE_THRESHOLD) ? 1.0 : 0.0;
+    // }
     
     // Normalize
     float normalized = (float)(rawValue - minValues[sensorIndex]) / (float)range;
@@ -152,8 +165,17 @@ bool Sensors::isLineDetected(uint16_t analogValue, uint8_t sensorIndex) {
         // Analog sensor - use calibrated threshold
         float normalized = normalizeValue(analogValue, sensorIndex);
         return normalized > MIN_DETECTION_RATIO;
-    } else {
+    } 
+    else {
         // Digital sensor - simple threshold
+        if(sensorIndex == 4){
+            if(analogValue > 25){
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
         return analogValue > LINE_THRESHOLD;
     }
 }
@@ -180,13 +202,13 @@ float Sensors::getPosition() {
         float normalized = normalizeValue(sensorValues[i], i);
         
         // Get confidence (NEW FEATURE)
-        float confidence = getSensorConfidence(i);
+        // float confidence = getSensorConfidence(i);
         
         // Only use sensors detecting line (above threshold)
         if (normalized > 0.3) {  // 30% threshold to include in calculation
             // Weight by both normalized value AND confidence
-            weightedSum += weights[i] * normalized * confidence;
-            totalWeight += normalized * confidence;
+            weightedSum += weights[i] * normalized;
+            totalWeight += normalized;
         }
     }
     
@@ -261,7 +283,8 @@ PathOptions Sensors::getAvailablePaths() {
         
         // STRAIGHT: Center sensors active (S4 or S5)
         paths.straight = (digital[3] || digital[4]);
-    } else {
+    }
+    else {
         // Normal line following - not a junction
         paths.left = false;
         paths.right = false;
@@ -306,9 +329,26 @@ bool Sensors::isLineEnd() {
             return false;  // Found a sensor that sees line → NOT line end
         }
     }
-    
-    // All sensors see black → LINE END
+    // All sensors see black → LINE END (dead end/off track)
     return true;
+}
+
+bool Sensors::isEndPoint() {
+    readRaw(sensorValues);
+    
+    // === FINISH WHITE SQUARE DETECTION ===
+    // Count how many sensors detect white
+    int whiteSensorCount = 0;
+    for (uint8_t i = 0; i < SensorCount; i++) {
+        if (isLineDetected(sensorValues[i], i)) {
+            whiteSensorCount++;
+        }
+    }
+    
+    // Finish square = most/all sensors see white (not just 2-3 on normal line)
+    // Normal line following: 2-4 sensors active
+    // Finish square: 6-8 sensors active
+    return (whiteSensorCount >= 6);  // At least 6 of 8 sensors see white
 }
 
 void Sensors::getSensorArray(bool* arr) {
@@ -324,26 +364,26 @@ void Sensors::calibrate() {
     setup();
 }
 
-float Sensors::getSensorConfidence(uint8_t sensorIndex) {
-    // === NEW FEATURE: SENSOR CONFIDENCE SCORING ===
-    // Returns 0.0-1.0 based on how reliable this sensor is
+// float Sensors::getSensorConfidence(uint8_t sensorIndex) {
+//     // === NEW FEATURE: SENSOR CONFIDENCE SCORING ===
+//     // Returns 0.0-1.0 based on how reliable this sensor is
     
-    if (!isAnalogPin[sensorIndex]) {
-        return 1.0;  // Digital sensors are binary - always "confident"
-    }
+//     if (!isAnalogPin[sensorIndex]) {
+//         return 1.0;  // Digital sensors are binary - always "confident"
+//     }
     
-    // For analog sensors, confidence = calibration range quality
-    uint16_t range = maxValues[sensorIndex] - minValues[sensorIndex];
+//     // For analog sensors, confidence = calibration range quality
+//     uint16_t range = maxValues[sensorIndex] - minValues[sensorIndex];
     
-    if (range > 2000) {
-        return 1.0;  // Excellent contrast
-    } else if (range > 1500) {
-        return 0.9;  // Very good
-    } else if (range > 1000) {
-        return 0.8;  // Good
-    } else if (range > 500) {
-        return 0.6;  // Fair - usable but unreliable
-    } else {
-        return 0.3;  // Poor - barely usable
-    }
-}
+//     if (range > 2000) {
+//         return 1.0;  // Excellent contrast
+//     } else if (range > 1500) {
+//         return 0.9;  // Very good
+//     } else if (range > 1000) {
+//         return 0.8;  // Good
+//     } else if (range > 500) {
+//         return 0.6;  // Fair - usable but unreliable
+//     } else {
+//         return 0.3;  // Poor - barely usable
+//     }
+// }

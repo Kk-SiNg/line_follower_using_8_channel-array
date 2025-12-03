@@ -97,7 +97,8 @@ void loop() {
             else if(range > 1000) Serial.println("Good      ║");
             else if(range > 500) Serial.println("Fair      ║");
             else Serial.println("⚠ Poor    ║");
-        } else {
+        } 
+        else {
             Serial.println("  N/A  ║  N/A  ║  N/A  ║  N/A  ║ Digital   ║");
         }
     }

@@ -44,6 +44,7 @@ public:
     // Detect if we've completely lost the line (dead end)
     bool isLineEnd();
     
+    bool isEndPoint();
     // Read raw sensor values
     void readRaw(uint16_t* values);       // Analog values (0-4095)
     void readDigital(bool* values);       // Convert to digital
